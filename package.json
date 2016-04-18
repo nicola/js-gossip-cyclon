@@ -1,0 +1,25 @@
+{
+  "name": "gossip-cyclon",
+  "version": "0.1.0",
+  "description": "Cyclon Gossip algorithm implemented in Javascript",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicola/gossip-cyclon"
+  },
+  "keywords": [
+    "cyclon",
+    "gossip",
+    "p2p",
+    "decentralization"
+  ],
+  "author": "Nicola Greco <me@nicola.io> (http://nicolagreco.com/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nicola/gossip-cyclon/issues"
+  },
+  "homepage": "https://github.com/nicola/gossip-cyclon"
+}
