@@ -8,77 +8,88 @@ const PeerSet = require('./peer-set-cyclon')
 class CyclonPeer extends EventEmitter {
   constructor (options) {
     super()
-    this.peer = new PeerInfo()
-    this.neighbors = new PeerSet(options.neighbors, options.neighborsLimit)
-    this.timeout = options.timeout || 1000 * 60 * 1
-    this.limit = options.limit || 5
+    // local
+    this.me = new PeerInfo()
+    this.peers = new PeerSet(options.peers, options.maxPeers)
+    this.interval = options.interval || 1000 * 60 * 1
+    this.maxPeers = options.maxPeers || 5
+
+    // events
+    this.peers.on('add', this.onNewPeer)
+    this.peers.on('remove', this.onPeerDown)
+    this.on('shuffle-receive', this.shuffleReceive)
   }
 
   start () {
-    this.timer = setInterval(this.shuffle, this.timeout)
-
-    // TODO
-    this.on('shuffle-receive', function (socket, message) {
-      // TODO updateNeighbors
-      let sending = this.neighbors.sample(this.limit)
-      socket.send({type: 'shuffle', data: sending})
-    })
+    this.timer = setInterval(this.shuffle, this.interval)
   }
 
   stop () {
-    if (this.timer) {
-      clearInterval(this.timer)
-    }
+    if (this.timer) clearInterval(this.timer)
   }
 
   shuffle () {
     // Step 1 increase the age of each neighboor
-    this.neighbors.updateAge()
+    this.peers.updateAge()
 
-    // Step 2 get oldest and sample subset
+    // Step 2 get oldest
     let peer = null
 
-    while (this.neighbors.length > 0) {
-      peer = this.neighbors.oldest()
-      if (peer.socket && peer.socket.connected) {
-        break
-      }
-      this.onPeerDown(peer)
+    if (this.lastShufflePeer !== null) {
+      this.peers.remove(this.lastShufflePeer.id)
+      this.lastShufflePeer = null
     }
 
-    if (this.neighbors.length === 0) {
+    while (this.peers.length > 0) {
+      peer = this.peers.oldest()
+      if (peer.isConnected()) {
+        break
+      }
+      this.peers.remove(peer.id)
+    }
+
+    if (this.peers.length === 0) {
       return
     }
 
-    this.neighbors.remove(peer.id)
-    let sampled = this.neighbors.sample(this.limit - 1)
+    this.peers.remove(peer.id)
+
+    // .. and sample subset
+    let sampled = this.peers.sample(this.maxPeers - 1)
 
     // Step 3 add yourself to the list
-    let sending = sampled.concat({ age: 0, id: this.peer.id })
+    let sending = sampled.concat({ age: 0, id: this.me.id })
 
     // Step 4 send subset to peer
-
-    // TODO
-    peer.socket.send({type: 'shuffle', data: sending})
+    peer.push('shuffle', {data: sending})
 
     // Step 5 receive subset from peer and update cache
     // TODO
-    peer.socket.on('shuffle-receive', (peers) => {
-      // TODO make sure we are in the same term
-      this.updateNeighbors(peers, sampled)
+    peer.on('shuffle-receive', (peers) => {
+      if (this.lastShufflePeer !== peer) {
+        return
+      }
+      this.updatePeers(peers, sampled)
+      this.lastShufflePeer = null
     })
   }
 
-  updateNeighbors (peers, replace) {
+  shuffleReceive (peer, remote) {
+    let sampled = this.peers.sampled(this.maxPeers)
+    peer.conn.send('shuffle-received', sampled)
+    this.updatePeers(remote, sampled)
+  }
+
+  updatePeers (peers, replace) {
     let add = peers
-      .slice(0, this.limit)
+      .slice(0, this.maxPeers)
       .filter((peer) => {
-        let itself = peer.id === this.peer.id
-        let exists = this.neighbors[peer.id]
+        let itself = peer.id === this.me.id
+        let exists = this.peers[peer.id]
         return !itself && !exists
       })
 
-    this.neighbors.upsert(add, replace)
+    this.peers.upsert(add, replace)
   }
 }
 
