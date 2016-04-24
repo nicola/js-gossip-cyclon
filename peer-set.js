@@ -3,26 +3,33 @@
 const sample = require('pick-random')
 const EventEmitter = require('events').EventEmitter
 
-module.exports = PeerSet
-
 class PeerSet extends EventEmitter {
   constructor (peers, limit) {
     super()
-    this.peers = peers || {} // {id1: {id: id1, age: age}, id2:..}
+    this.peers = {}
+    if (peers) {
+      peers.forEach((peer) => {
+        this.peers[peer.id] = peer
+      })
+    }
     this.limit = limit || 10
   }
   sample (limit) {
-    let array = Object.keys(this.peers)
-    let sampled = sample(array, {count: this.limit})
+    let ids = Object.keys(this.peers)
+    let sampled = sample(ids, {count: Math.min(limit, ids.length)})
     return sampled.map((key) => {
       return {
         age: this.peers[key].age,
-        id: this.peers[key].id
+        id: this.peers[key].id,
+        multiaddrs: this.peers[key].multiaddrs
       }
     })
   }
   get length () {
     return Object.keys(this.peers).length
+  }
+  get (id) {
+    return this.peers[id]
   }
   remove (peer) {
     if (this.peers[peer]) {
@@ -45,3 +52,5 @@ class PeerSet extends EventEmitter {
     })
   }
 }
+
+module.exports = PeerSet

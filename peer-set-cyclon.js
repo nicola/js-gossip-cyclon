@@ -1,27 +1,30 @@
 'use strict'
 
-const max = require('max-component')
 const PeerSet = require('./peer-set')
 
-module.exports = CyclonPeerSet
+function max (array) {
+  return array.indexOf(Math.max.apply(Math, array))
+}
 
 class CyclonPeerSet extends PeerSet {
   constructor (peers, limit) {
     super(peers, limit)
     // Set age = 0 to each peer by default
-    this.peers.forEach((peer) => {
-      if (!peer.age) {
-        peer.age = 0
-      }
+    Object.keys(this.peers).forEach((id) => {
+      this.peers[id].age = 0
     })
   }
   updateAge () {
-    for (let i in this.peers) {
-      this.peers[i].age++
-    }
+    Object.keys(this.peers).forEach((id) => {
+      this.peers[id].age++
+    })
   }
   oldest () {
-    let array = Object.keys(this.peers).map((key) => this.peers[key])
-    return max(array, 'age')
+    var ids = Object.keys(this.peers)
+    let oldest = max(ids.map((key) => this.peers[key].age))
+    let id = ids[oldest]
+    return this.peers[id]
   }
 }
+
+module.exports = CyclonPeerSet

@@ -21,5 +21,20 @@
   "bugs": {
     "url": "https://github.com/nicola/gossip-cyclon/issues"
   },
-  "homepage": "https://github.com/nicola/gossip-cyclon"
+  "homepage": "https://github.com/nicola/gossip-cyclon",
+  "dependencies": {
+    "bs58": "^3.0.0",
+    "debug": "^2.2.0",
+    "libp2p-spdy": "^0.3.1",
+    "libp2p-swarm": "^0.10.6",
+    "libp2p-tcp": "^0.4.0",
+    "max-component": "^1.0.0",
+    "multiaddr": "^1.4.1",
+    "peer-info": "^0.6.2",
+    "pick-random": "^1.1.0"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^2.4.5"
+  }
 }
