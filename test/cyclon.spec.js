@@ -52,4 +52,15 @@ describe('cyclon-peer', function () {
     })
     Alice.addPeers([Bob.me])
   })
+
+  it('removing a peer emits an event', (done) => {
+    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
+    Alice.addPeers([Bob.me])
+    Alice.peers.on('remove', (peer) => {
+      expect(peer).to.exist
+      expect(peer.id.toB58String()).to.eql(Bob.id)
+      done()
+    })
+    Alice.peers.remove(Bob.me.id)
+  })
 })

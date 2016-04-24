@@ -31,11 +31,12 @@ class PeerSet extends EventEmitter {
   get (id) {
     return this.peers[id]
   }
-  remove (peer) {
-    if (this.peers[peer]) {
-      this.emit('remove', this.peers[peer])
-      delete this.peers[peer]
+  remove (id) {
+    const peer = this.peers[id]
+    if (peer) {
+      delete this.peers[id]
     }
+    this.emit('remove', peer)
   }
   upsert (peers, repleceable = []) {
     peers.forEach((peer, i) => {
@@ -44,8 +45,8 @@ class PeerSet extends EventEmitter {
           return
         }
         let repleacing = repleceable.shift(0)
-        this.emit('remove', this.peers[repleacing])
-        delete this.peers[repleacing]
+        this.emit('remove', this.peers[repleacing.id])
+        delete this.peers[repleacing.id]
       }
       this.peers[peer.id] = peer
       this.emit('add', peer)

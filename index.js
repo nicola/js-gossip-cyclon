@@ -70,7 +70,7 @@ class CyclonPeer extends EventEmitter {
   }
 
   onPeerDown (peer) {
-    debug(`remove peer ${peer}`)
+    debug(`${peerId(this.me)} remove peer ${peer}`)
   }
 
   start (callback) {
