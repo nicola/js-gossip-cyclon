@@ -114,7 +114,12 @@ class CyclonPeer extends EventEmitter {
     this.peers.remove(oldest.id)
 
     // .. and sample subset
-    let sampled = this.peers.sample(this.maxPeers - 1)
+    let sampled = this.peers
+      .sample(this.maxPeers - 1)
+      .map((peer) => {
+        peer.id = peer.id.toB58String()
+        return peer
+      })
 
     // Step 3 add yourself to the list
     let sending = sampled.concat({
@@ -132,7 +137,12 @@ class CyclonPeer extends EventEmitter {
       if (this.lastShufflePeer !== oldest) {
         return
       }
-      this.addPeers(peers, sampled)
+      this.addPeers(peers.map((peer) => {
+        const pi = new PeerInfo(PeerId.createFromB58String(peer.id))
+        pi.age = peer.age
+        pi.multiaddrs = pi.multiaddrs // TODO check
+        return pi
+      }), sampled)
       this.lastShufflePeer = null
     })
   }

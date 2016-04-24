@@ -59,6 +59,7 @@ describe('cyclon-peer', function () {
     Alice.peers.on('remove', (peer) => {
       expect(peer).to.exist
       expect(peer.id.toB58String()).to.eql(Bob.id)
+      expect(Alice.peers).to.have.lengthOf(0)
       done()
     })
     Alice.peers.remove(Bob.me.id)
