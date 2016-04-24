@@ -8,7 +8,6 @@ const Swarm = require('libp2p-swarm')
 const TCP = require('libp2p-tcp')
 const spdy = require('libp2p-spdy')
 const multiaddr = require('multiaddr')
-const base58 = require('bs58')
 const debug = require('debug')('cyclon')
 const PeerId = require('peer-id')
 
@@ -117,14 +116,17 @@ class CyclonPeer extends EventEmitter {
     let sampled = this.peers
       .sample(this.maxPeers - 1)
       .map((peer) => {
-        peer.id = peer.id.toB58String()
-        return peer
+        return {
+          id: peer.id.toB58String(),
+          age: peer.age,
+          multiaddrs: peer.multiaddrs
+        }
       })
 
     // Step 3 add yourself to the list
     let sending = sampled.concat({
+      id: this.me.id.toB58String(),
       age: 0,
-      id: this.id,
       multiaddrs: this.me.multiaddrs
     })
 
@@ -137,20 +139,24 @@ class CyclonPeer extends EventEmitter {
       if (this.lastShufflePeer !== oldest) {
         return
       }
-      this.addPeers(peers.map((peer) => {
-        const pi = new PeerInfo(PeerId.createFromB58String(peer.id))
-        pi.age = peer.age
-        pi.multiaddrs = pi.multiaddrs // TODO check
-        return pi
-      }), sampled)
+      this.addPeers(peers.map(fromRawPeer), sampled)
       this.lastShufflePeer = null
     })
   }
 
   shuffleReceive (peer, remote) {
-    let sampled = this.peers.sampled(this.maxPeers)
+    let sampled = this.peers
+      .sample(this.maxPeers)
+      .map((peer) => {
+        return {
+          id: peer.id.toB58String(),
+          age: peer.age,
+          multiaddrs: peer.multiaddrs
+        }
+      })
+
     peer.conn.send('shuffle-received', sampled)
-    this.addPeers(remote, sampled)
+    this.addPeers(remote.map(fromRawPeer), sampled)
   }
 
   addPeers (peers, replace) {
@@ -164,6 +170,13 @@ class CyclonPeer extends EventEmitter {
 
     this.peers.upsert(add, replace)
   }
+}
+
+function fromRawPeer (peer) {
+  const pi = new PeerInfo(PeerId.createFromB58String(peer.id))
+  pi.age = peer.age
+  pi.multiaddrs = peer.multiaddrs
+  return pi
 }
 
 module.exports = CyclonPeer
