@@ -5,8 +5,8 @@ const PeerInfo = require('peer-info')
 const EventEmitter = require('events').EventEmitter
 const PeerSet = require('./peer-set-cyclon')
 const Swarm = require('libp2p-swarm')
-const TCP = require('libp2p-tcp')
-const spdy = require('libp2p-spdy')
+// const TCP = require('libp2p-tcp')
+// const spdy = require('libp2p-spdy')
 const multiaddr = require('multiaddr')
 const debug = require('debug')('cyclon')
 const PeerId = require('peer-id')
@@ -23,21 +23,17 @@ class CyclonPeer extends EventEmitter {
     this.me.multiaddr.add(multiaddr('/ip4/0.0.0.0/tcp/0'))
 
     // handling connections
-    // this.swarm = new Swarm(this.me)
-    // this.swarm.transport.add('tcp', new TCP())
-    // this.swarm.connection.addStreamMuxer(spdy)
-    // this.swarm.connection.reuse()
+    this.swarm = new Swarm(this.me)
+    this.swarm.handle('/cyclon/0.1.0', (conn) => {
+      // conn.on('data', (data) => {
+      //   console.log(data.toString())
+      //   conn.write(data)
+      // })
 
-    // this.swarm.handle('/cyclon/0.1.0', (conn) => {
-    //   conn.on('data', (data) => {
-    //     console.log(data.toString())
-    //     conn.write(data)
-    //   })
-
-    //   conn.on('end', () => {
-    //     conn.end()
-    //   })
-    // })
+      // conn.on('end', () => {
+      //   conn.end()
+      // })
+    })
 
     // getting options
     this.peers = new PeerSet(options.peers, options.maxPeers)
@@ -73,7 +69,7 @@ class CyclonPeer extends EventEmitter {
   }
 
   start (callback) {
-    this.swarm.transport.listen('tcp', {}, null, callback)
+    // this.swarm.transport.listen('tcp', {}, null, callback)
     this.shuffle()
     this.timer = setInterval(this.shuffle, this.interval)
   }
