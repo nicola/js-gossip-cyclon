@@ -1,12 +1,11 @@
 'use strict'
 
-// const intersect = require('intersect')
 const PeerInfo = require('peer-info')
 const EventEmitter = require('events').EventEmitter
 const PeerSet = require('./peer-set-cyclon')
 const Swarm = require('libp2p-swarm')
-// const TCP = require('libp2p-tcp')
-// const spdy = require('libp2p-spdy')
+const TCP = require('libp2p-tcp')
+const spdy = require('libp2p-spdy')
 const multiaddr = require('multiaddr')
 const debug = require('debug')('cyclon')
 const PeerId = require('peer-id')
@@ -28,6 +27,9 @@ class CyclonPeer extends EventEmitter {
 
     // handling connections
     this.swarm = new Swarm(this.me)
+    this.swarm.transport.add('tcp', new TCP())
+    this.swarm.connection.addStreamMuxer(spdy)
+    this.swarm.connection.reuse()
     this.swarm.handle('/cyclon/0.1.0', (conn) => {
       // conn.on('data', (data) => {
       //   console.log(data.toString())
@@ -68,8 +70,11 @@ class CyclonPeer extends EventEmitter {
     debug(`${peerToId(this.me)} remove peer ${peer}`)
   }
 
+  connect (callback) {
+    this.swarm.transport.listen('tcp', {}, null, callback)
+  }
+
   start (callback) {
-    // this.swarm.transport.listen('tcp', {}, null, callback)
     this.shuffle()
     this.timer = setInterval(this.shuffle, this.interval)
   }
@@ -122,6 +127,13 @@ class CyclonPeer extends EventEmitter {
     let sending = sample.concat({
       id: this.peers.peerToId(this.me),
       multiaddrs: this.me.multiaddrs
+    })
+
+    this.swarm.dial(oldest, '/cyclon/0.1.0', (err, conn) => {
+      if (err) {
+        debug('error when dialing the old')
+        conn.write({op: 'shuffle', data: sending})
+      }
     })
 
     // Step 4 send subset to peer

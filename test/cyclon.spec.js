@@ -5,6 +5,7 @@ const expect = require('chai').expect
 const CyclonPeer = require('../')
 const PeerId = require('peer-id')
 const PeerInfo = require('peer-info')
+const parallel = require('run-parallel')
 
 const alice = {
   id: '1220151ab1658d8294ab34b71d5582cfe20d06414212f440a69366f1bc31deb5c72d',
@@ -25,6 +26,22 @@ describe('cyclon-peer', function () {
     expect(Object.keys(Bob.peers.peers)[0]).to.eql(Bob.peers.peerToId(Alice.me))
     expect(Bob.peers.get(Alice.me)).to.exist
     done()
+  })
+
+  it('should listen for dialing of /cyclon/x.y.z', (done) => {
+    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
+    parallel([
+      Alice.connect.bind(Alice),
+      Bob.connect.bind(Bob)
+    ], (err) => {
+      expect(err).to.not.exist
+      Alice.swarm.dial(Bob.me, '/cyclon/0.1.0', (err, conn) => {
+        expect(err).to.not.exist
+        expect(conn).to.exist
+        console.log(conn)
+        done()
+      })
+    })
   })
 
   it('add peers to peer set', (done) => {
@@ -56,6 +73,17 @@ describe('cyclon-peer', function () {
       done()
     })
     Alice.peers.remove(Bob.me)
+  })
+
+  describe('connect', () => {
+    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
+
+    it('starts listening on a tcp port', (done) => {
+      Alice.connect((err) => {
+        expect(err).to.not.exist
+        done()
+      })
+    })
   })
 
   describe('shuffling', () => {
