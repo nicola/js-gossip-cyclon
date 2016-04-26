@@ -109,7 +109,7 @@ class CyclonPeer extends EventEmitter {
     this.peers.remove(oldest)
 
     // .. and sample subset
-    let sampled = this.peers
+    let sample = this.peers
       .sample(this.maxPeers - 1)
       .map((peer) => {
         return {
@@ -119,27 +119,27 @@ class CyclonPeer extends EventEmitter {
       })
 
     // Step 3 add yourself to the list
-    let sending = sampled.concat({
+    let sending = sample.concat({
       id: this.peers.peerToId(this.me),
       multiaddrs: this.me.multiaddrs
     })
 
     // Step 4 send subset to peer
-    oldest.emit('shuffle', {data: sending})
+    // oldest.emit('shuffle', {data: sending})
 
     // Step 5 receive subset from peer and update cache
     // TODO
-    oldest.on('shuffle-receive', (peers) => {
-      if (this.lastShufflePeer !== oldest) {
-        return
-      }
-      this.addPeers(peers.map(fromRawPeer), sampled)
-      this.lastShufflePeer = null
-    })
+    // oldest.on('shuffle-receive', (peers) => {
+    //   if (this.lastShufflePeer !== oldest) {
+    //     return
+    //   }
+    //   this.addPeers(peers.map(fromRawPeer), sample)
+    //   this.lastShufflePeer = null
+    // })
   }
 
   shuffleReceive (peer, remote) {
-    let sampled = this.peers
+    let sample = this.peers
       .sample(this.maxPeers)
       .map((peer) => {
         return {
@@ -148,8 +148,8 @@ class CyclonPeer extends EventEmitter {
         }
       })
 
-    peer.conn.send('shuffle-received', sampled)
-    this.addPeers(remote.map(fromRawPeer), sampled)
+    peer.conn.send('shuffle-received', sample)
+    this.addPeers(remote.map(fromRawPeer), sample)
   }
 
   addPeers (peers, replace) {
@@ -161,7 +161,12 @@ class CyclonPeer extends EventEmitter {
         return !itself && !exists
       })
 
-    this.peers.upsert(add, replace)
+    this.peers.upsert(
+      add.map((peer) => {
+        peer.age = 0
+        return peer
+      }),
+      replace)
   }
 }
 

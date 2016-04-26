@@ -22,6 +22,9 @@ class PeerSet extends EventEmitter {
   }
   sample (limit) {
     let ids = Object.keys(this.peers)
+    if (ids.length === 0) {
+      return []
+    }
     let sampled = sample(ids, {count: Math.min(limit, ids.length)})
     return sampled.map((key) => {
       return this.peers[key]

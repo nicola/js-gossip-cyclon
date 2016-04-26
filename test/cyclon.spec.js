@@ -57,4 +57,19 @@ describe('cyclon-peer', function () {
     })
     Alice.peers.remove(Bob.me)
   })
+
+  describe('shuffling', () => {
+    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
+
+    beforeEach((done) => {
+      Alice.addPeers([Bob.me])
+      done()
+    })
+
+    it('removes the oldest node', (done) => {
+      Alice.shuffle()
+      expect(Alice.peers).to.have.lengthOf(0)
+      done()
+    })
+  })
 })

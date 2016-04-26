@@ -22,7 +22,9 @@ class CyclonPeerSet extends PeerSet {
   }
   oldest () {
     var ids = Object.keys(this.peers)
-    let oldest = max(ids.map((key) => this.peers[key].age))
+    let oldest = max(ids.map((key) => {
+      return this.peers[key].age
+    }))
     let id = ids[oldest]
     return this.peers[id]
   }

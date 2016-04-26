@@ -35,5 +35,8 @@ describe('peer-set', function () {
     const subset = set.sample(10)
     expect(subset).to.have.lengthOf(10)
     done()
+
+    const empty = new PeerSet()
+    expect(empty.sample()).to.have.lengthOf(0)
   })
 })
