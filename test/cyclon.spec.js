@@ -15,22 +15,15 @@ const alice = {
 describe('cyclon-peer', function () {
   this.timeout(20000)
   const AliceId = PeerId.createFromPrivKey(alice.privKey)
-  const Bob = new CyclonPeer({peers: [{id: AliceId.toB58String()}]})
-
-  it('get id', (done) => {
-    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
-    expect(Alice.id).to.eql(Alice.me.id.toB58String())
-    done()
-  })
+  const Bob = new CyclonPeer({peers: [new PeerInfo(PeerId.createFromB58String(AliceId.toB58String()))]})
 
   it('create with bootstrap peers', (done) => {
     const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
     expect(Alice).to.exist
-    expect(Alice.id).to.exist
     expect(Bob).to.exist
-    expect(Bob.id).to.exist
     expect(Bob.peers).to.have.lengthOf(1)
-    expect(Bob.peers.get(Alice.id)).to.exist
+    expect(Object.keys(Bob.peers.peers)[0]).to.eql(Bob.peers.peerToId(Alice.me))
+    expect(Bob.peers.get(Alice.me)).to.exist
     done()
   })
 
@@ -39,7 +32,7 @@ describe('cyclon-peer', function () {
     Alice.addPeers([Bob.me])
     expect(Alice.peers).to.have.lengthOf(1)
     expect(Alice.peers.get(Bob.me)).to.exist
-    expect(Alice.peers.get(Bob.me).id.toB58String()).to.eql(Bob.id)
+    expect(Alice.peers.peers[Alice.peers.peerToId(Bob.me)]).to.exist
     done()
   })
 
@@ -47,7 +40,7 @@ describe('cyclon-peer', function () {
     const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
     Alice.peers.on('add', (peer) => {
       expect(peer).to.exist
-      expect(peer.id.toB58String()).to.eql(Bob.id)
+      expect(Alice.peers.peerToId(peer)).to.eql(Alice.peers.peerToId(Bob.me))
       done()
     })
     Alice.addPeers([Bob.me])
@@ -58,10 +51,10 @@ describe('cyclon-peer', function () {
     Alice.addPeers([Bob.me])
     Alice.peers.on('remove', (peer) => {
       expect(peer).to.exist
-      expect(peer.id.toB58String()).to.eql(Bob.id)
+      expect(Alice.peers.peerToId(peer)).to.eql(Alice.peers.peerToId(Bob.me))
       expect(Alice.peers).to.have.lengthOf(0)
       done()
     })
-    Alice.peers.remove(Bob.me.id)
+    Alice.peers.remove(Bob.me)
   })
 })

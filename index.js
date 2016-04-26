@@ -11,8 +11,12 @@ const multiaddr = require('multiaddr')
 const debug = require('debug')('cyclon')
 const PeerId = require('peer-id')
 
-function peerId (peerInfo) {
-  return peerInfo.id.toB58String().substring(2, 10)
+function peerToId (peerInfo, short) {
+  if (short === true) {
+    return peerInfo.id.toB58String().substring(2, 10)
+  } else {
+    return peerInfo.id.toB58String()
+  }
 }
 
 class CyclonPeer extends EventEmitter {
@@ -36,7 +40,7 @@ class CyclonPeer extends EventEmitter {
     })
 
     // getting options
-    this.peers = new PeerSet(options.peers, options.maxPeers)
+    this.peers = new PeerSet(options.peers, options.maxPeers, options.peerToId || peerToId)
     this.interval = options.interval || 1000 * 60 * 1
     this.maxPeers = options.maxPeers || 20
 
@@ -48,15 +52,11 @@ class CyclonPeer extends EventEmitter {
     this.peers.on('remove', this.onPeerDown.bind(this))
     this.on('shuffle-receive', this.shuffleReceive)
 
-    debug(`create peer ${peerId(this.me)}`)
-  }
-
-  get id () {
-    return this.me.id.toB58String()
+    debug(`create peer ${peerToId(this.me)}`)
   }
 
   onNewPeer (peer) {
-    debug(`${peerId(this.me)} adds peer ${peerId(peer)}`)
+    debug(`${peerToId(this.me)} adds peer ${peerToId(peer)}`)
     // this.swarm.dial(new PeerInfo(peer.id), '/cyclon/0.1.0', (err, conn) => {
     //   if (err) {
     //     this.peers.remove(peer.id)
@@ -65,7 +65,7 @@ class CyclonPeer extends EventEmitter {
   }
 
   onPeerDown (peer) {
-    debug(`${peerId(this.me)} remove peer ${peer}`)
+    debug(`${peerToId(this.me)} remove peer ${peer}`)
   }
 
   start (callback) {
@@ -86,7 +86,7 @@ class CyclonPeer extends EventEmitter {
     let oldest = null
 
     if (this.lastShufflePeer !== null) {
-      this.peers.remove(this.lastShufflePeer.id)
+      this.peers.remove(this.lastShufflePeer)
       this.lastShufflePeer = null
     }
 
@@ -95,34 +95,32 @@ class CyclonPeer extends EventEmitter {
       if (true) { // (oldest.isConnected()) {
         break
       }
-      this.peers.remove(oldest.id)
+      this.peers.remove(oldest)
     }
 
     if (this.peers.length === 0) {
-      debug(`${peerId(this.me)} has 0 peers, can't proceed`)
+      debug(`${peerToId(this.me)} has 0 peers, can't proceed`)
       return
     }
 
-    debug(`${peerId(this.me)} starting shuffling with peer ${peerId(oldest)}`)
+    debug(`${peerToId(this.me)} starting shuffling with peer ${peerToId(oldest)}`)
 
     this.lastShufflePeer = oldest
-    this.peers.remove(oldest.id)
+    this.peers.remove(oldest)
 
     // .. and sample subset
     let sampled = this.peers
       .sample(this.maxPeers - 1)
       .map((peer) => {
         return {
-          id: peer.id.toB58String(),
-          age: peer.age,
+          id: this.peers.peerToId(peer),
           multiaddrs: peer.multiaddrs
         }
       })
 
     // Step 3 add yourself to the list
     let sending = sampled.concat({
-      id: this.me.id.toB58String(),
-      age: 0,
+      id: this.peers.peerToId(this.me),
       multiaddrs: this.me.multiaddrs
     })
 
@@ -145,8 +143,7 @@ class CyclonPeer extends EventEmitter {
       .sample(this.maxPeers)
       .map((peer) => {
         return {
-          id: peer.id.toB58String(),
-          age: peer.age,
+          id: this.peers.peerToId(peer),
           multiaddrs: peer.multiaddrs
         }
       })
@@ -159,8 +156,8 @@ class CyclonPeer extends EventEmitter {
     let add = peers
       .slice(0, this.maxPeers)
       .filter((peer) => {
-        let itself = peer.id === this.me.id
-        let exists = this.peers[peer.id]
+        let itself = this.peers.peerToId(peer) === this.peers.peerToId(this.me)
+        let exists = this.peers.get(peer)
         return !itself && !exists
       })
 

@@ -4,7 +4,7 @@
   "description": "Cyclon Gossip algorithm implemented in Javascript",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha --harmony_default_parameters test/"
   },
   "repository": {
     "type": "git",

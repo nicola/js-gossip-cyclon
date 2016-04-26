@@ -12,8 +12,8 @@ describe('peer-set', function () {
     const Bob = {id: 'Bob'}
     const set = new PeerSet([Alice, Bob])
     expect(set).to.exist
-    expect(set.peers[Alice.id]).to.eql(Alice)
-    expect(set.peers[Bob.id]).to.eql(Bob)
+    expect(set.peers[set.peerToId(Alice)]).to.eql(Alice)
+    expect(set.peers[set.peerToId(Bob)]).to.eql(Bob)
     done()
   })
 
@@ -22,8 +22,8 @@ describe('peer-set', function () {
     const Bob = {id: 'Bob'}
     const set = new PeerSet([Alice, Bob])
     expect(set).to.exist
-    expect(set.get(Alice.id)).to.eql(Alice)
-    expect(set.get(Bob.id)).to.eql(Bob)
+    expect(set.get(Alice)).to.eql(Alice)
+    expect(set.get(Bob)).to.eql(Bob)
     done()
   })
 

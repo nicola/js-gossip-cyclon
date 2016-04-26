@@ -3,13 +3,19 @@
 const sample = require('pick-random')
 const EventEmitter = require('events').EventEmitter
 
+function defaultPeerToId (peer) {
+  return peer.id
+}
+
 class PeerSet extends EventEmitter {
-  constructor (peers, limit) {
+  constructor (peers, limit, peerToId) {
     super()
     this.peers = {}
+    this.peerToId = peerToId || defaultPeerToId
     if (peers) {
       peers.forEach((peer) => {
-        this.peers[peer.id] = peer
+        const id = this.peerToId(peer)
+        this.peers[id] = peer
       })
     }
     this.limit = limit || 10
@@ -24,11 +30,13 @@ class PeerSet extends EventEmitter {
   get length () {
     return Object.keys(this.peers).length
   }
-  get (id) {
+  get (peer) {
+    const id = this.peerToId(peer)
     return this.peers[id]
   }
-  remove (id) {
-    const peer = this.peers[id]
+  remove (peer) {
+    const id = this.peerToId(peer)
+    peer = this.peers[id]
     if (peer) {
       delete this.peers[id]
     }
@@ -41,10 +49,12 @@ class PeerSet extends EventEmitter {
           return
         }
         let repleacing = repleceable.shift(0)
-        this.emit('remove', this.peers[repleacing.id])
-        delete this.peers[repleacing.id]
+        const id = this.peerToId(repleacing)
+        this.emit('remove', this.peers[id])
+        delete this.peers[id]
       }
-      this.peers[peer.id] = peer
+      const id = this.peerToId(peer)
+      this.peers[id] = peer
       this.emit('add', peer)
     })
   }
