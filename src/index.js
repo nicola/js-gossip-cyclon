@@ -53,7 +53,7 @@ class CyclonPeer extends EventEmitter {
     this.connect = (peer) => {
       this.swarm.dial(peer, '/cyclon/0.1.0', (err, conn) => {
         if (err) {
-          debug(`err connecting to ${peerToId(peer, true)}`, err)
+          debug(`${peerToId(this.me, true)} - ${peerToId(peer, true)} connection failed, err: ${err.message}`)
           return
         }
 
@@ -89,10 +89,10 @@ class CyclonPeer extends EventEmitter {
 
     // events
     this.peers.on('add', (peer) => {
-      debug(`${peerToId(this.me)} adds peer ${peerToId(peer)}`)
+      debug(`${peerToId(this.me, true)} - ${peerToId(peer, true)} add event`)
     })
     this.peers.on('remove', (peer) => {
-      debug(`${peerToId(this.me)} remove peer ${peer}`)
+      debug(`${peerToId(this.me, true)} - ${peerToId(peer, true)} remove event`)
     })
     this.on('shuffle-receive', this.shuffleReceive)
 
@@ -101,10 +101,10 @@ class CyclonPeer extends EventEmitter {
     })
 
     this.on('peer-disconnect', (err, peer) => {
-      debug('* peer is disconnected', peerToId(peer, true), 'with error', err)
+      debug(`${peerToId(this.me, true)} - ${peerToId(peer, true)} disconnect event, err: ${err.message}`)
     })
 
-    debug(`create peer ${peerToId(this.me)}`)
+    debug(`${peerToId(this.me, true)} - creation complete`)
   }
 
   listen (callback) {
@@ -112,7 +112,7 @@ class CyclonPeer extends EventEmitter {
   }
 
   close (callback) {
-    debug('close', peerToId(this.me, true))
+    debug(`${peerToId(this.me, true)} - close`)
     this.stop()
     this.swarm.close(callback)
   }
@@ -160,11 +160,11 @@ class CyclonPeer extends EventEmitter {
     const oldest = this.oldest()
 
     if (this.peers.length === 0) {
-      debug(`${peerToId(this.me)} has 0 peers, can't proceed`)
+      debug(`${peerToId(this.me, true)} - 0 peers, can't shuffle`)
       return
     }
 
-    debug(`${peerToId(this.me)} starting shuffling with peer ${peerToId(oldest)}`)
+    debug(`${peerToId(this.me, true)} - ${peerToId(oldest)} shuffling`)
 
     this.lastShufflePeer = oldest
     this.peers.remove(oldest)
