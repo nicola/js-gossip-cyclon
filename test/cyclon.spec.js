@@ -2,7 +2,7 @@
 'use strict'
 
 const expect = require('chai').expect
-const CyclonPeer = require('../')
+const CyclonPeer = require('../src')
 const PeerId = require('peer-id')
 const PeerInfo = require('peer-info')
 const parallel = require('run-parallel')
@@ -28,22 +28,6 @@ describe('cyclon-peer', function () {
     done()
   })
 
-  it('should listen for dialing of /cyclon/x.y.z', (done) => {
-    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
-    parallel([
-      Alice.connect.bind(Alice),
-      Bob.connect.bind(Bob)
-    ], (err) => {
-      expect(err).to.not.exist
-      Alice.swarm.dial(Bob.me, '/cyclon/0.1.0', (err, conn) => {
-        expect(err).to.not.exist
-        expect(conn).to.exist
-        console.log(conn)
-        done()
-      })
-    })
-  })
-
   it('add peers to peer set', (done) => {
     const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
     Alice.addPeers([Bob.me])
@@ -63,6 +47,29 @@ describe('cyclon-peer', function () {
     Alice.addPeers([Bob.me])
   })
 
+  it('adding a peer emits a connect event', (done) => {
+    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
+    parallel([
+      Bob.listen.bind(Bob),
+      Alice.listen.bind(Alice)
+    ], (err) => {
+      if (err) return done(err)
+
+      Alice.addPeers([Bob.me])
+      Alice.on('peer-connect', (peer) => {
+        expect(peer).to.exist
+        expect(Alice.peers.peerToId(peer)).to.eql(Alice.peers.peerToId(Bob.me))
+
+        // close standing connection
+        peer.conn.end()
+        parallel([
+          Bob.close.bind(Bob),
+          Alice.close.bind(Alice)
+        ], done)
+      })
+    })
+  })
+
   it('removing a peer emits an event', (done) => {
     const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
     Alice.addPeers([Bob.me])
@@ -75,29 +82,37 @@ describe('cyclon-peer', function () {
     Alice.peers.remove(Bob.me)
   })
 
-  describe('connect', () => {
+  describe('listen', () => {
     const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
 
     it('starts listening on a tcp port', (done) => {
-      Alice.connect((err) => {
+      Alice.listen((err) => {
         expect(err).to.not.exist
-        done()
+        Alice.close(() => {
+          done()
+        })
       })
     })
-  })
 
-  describe('shuffling', () => {
-    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
-
-    beforeEach((done) => {
-      Alice.addPeers([Bob.me])
-      done()
-    })
-
-    it('removes the oldest node', (done) => {
-      Alice.shuffle()
-      expect(Alice.peers).to.have.lengthOf(0)
-      done()
+    it('starts listening on the /cyclon/x.y.z protocol', (done) => {
+      const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
+      parallel([
+        Alice.listen.bind(Alice),
+        Bob.listen.bind(Bob)
+      ], (err) => {
+        expect(err).to.not.exist
+        Alice.swarm.dial(Bob.me, '/cyclon/0.1.0', (err, conn) => {
+          expect(err).to.not.exist
+          expect(conn).to.exist
+          conn.end()
+          parallel([
+            Bob.close.bind(Bob),
+            Alice.close.bind(Alice)
+          ], () => {
+            done()
+          })
+        })
+      })
     })
   })
 })

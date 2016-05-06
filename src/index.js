@@ -2,13 +2,14 @@
 
 const PeerInfo = require('peer-info')
 const EventEmitter = require('events').EventEmitter
-const PeerSet = require('./peer-set-cyclon')
+const PeerSet = require('peer-set-cyclon')
 const Swarm = require('libp2p-swarm')
 const TCP = require('libp2p-tcp')
 const spdy = require('libp2p-spdy')
 const multiaddr = require('multiaddr')
 const debug = require('debug')('cyclon')
 const PeerId = require('peer-id')
+const ndjson = require('ndjson')
 
 function peerToId (peerInfo, short) {
   if (short === true) {
@@ -31,18 +32,55 @@ class CyclonPeer extends EventEmitter {
     this.swarm.connection.addStreamMuxer(spdy)
     this.swarm.connection.reuse()
     this.swarm.handle('/cyclon/0.1.0', (conn) => {
-      // conn.on('data', (data) => {
-      //   console.log(data.toString())
-      //   conn.write(data)
-      // })
+      conn
+        .pipe(ndjson.parse())
+        .on('data', (data) => {
+          console.log(data.toString())
+          conn.write(data)
+        })
 
-      // conn.on('end', () => {
-      //   conn.end()
-      // })
+      conn.on('error', (err) => {
+        debug(`${peerToId(this.me, true)} disconnected with error`, err)
+      })
+
+      conn.on('end', () => {
+        conn.end()
+      })
+
+      this.conn = conn
     })
 
+    this.connect = (peer) => {
+      this.swarm.dial(peer, '/cyclon/0.1.0', (err, conn) => {
+        if (err) {
+          debug(`err connecting to ${peerToId(peer, true)}`, err)
+          return
+        }
+
+        conn.on('error', (err) => {
+          this.emit('peer-disconnect', err, peer)
+        })
+
+        conn.on('end', () => {
+          conn.end()
+        })
+
+        peer.conn = conn
+        this.emit('peer-connect', peer)
+      })
+
+      return peer
+    }
+
     // getting options
-    this.peers = new PeerSet(options.peers, options.maxPeers, options.peerToId || peerToId)
+    if (options.peer) {
+      options.peers.forEach(this.connect)
+    }
+    this.peers = new PeerSet(
+      options.peers,
+      options.maxPeers,
+      options.peerToId || peerToId)
+
     this.interval = options.interval || 1000 * 60 * 1
     this.maxPeers = options.maxPeers || 20
 
@@ -50,28 +88,33 @@ class CyclonPeer extends EventEmitter {
     this.lastShufflePeer = null
 
     // events
-    this.peers.on('add', this.onNewPeer.bind(this))
-    this.peers.on('remove', this.onPeerDown.bind(this))
+    this.peers.on('add', (peer) => {
+      debug(`${peerToId(this.me)} adds peer ${peerToId(peer)}`)
+    })
+    this.peers.on('remove', (peer) => {
+      debug(`${peerToId(this.me)} remove peer ${peer}`)
+    })
     this.on('shuffle-receive', this.shuffleReceive)
+
+    this.on('peer-connect', (peer) => {
+      debug('* peer is connected', peerToId(peer, true))
+    })
+
+    this.on('peer-disconnect', (err, peer) => {
+      debug('* peer is disconnected', peerToId(peer, true), 'with error', err)
+    })
 
     debug(`create peer ${peerToId(this.me)}`)
   }
 
-  onNewPeer (peer) {
-    debug(`${peerToId(this.me)} adds peer ${peerToId(peer)}`)
-    // this.swarm.dial(new PeerInfo(peer.id), '/cyclon/0.1.0', (err, conn) => {
-    //   if (err) {
-    //     this.peers.remove(peer.id)
-    //   }
-    // })
-  }
-
-  onPeerDown (peer) {
-    debug(`${peerToId(this.me)} remove peer ${peer}`)
-  }
-
-  connect (callback) {
+  listen (callback) {
     this.swarm.transport.listen('tcp', {}, null, callback)
+  }
+
+  close (callback) {
+    debug('close', peerToId(this.me, true))
+    this.stop()
+    this.swarm.close(callback)
   }
 
   start (callback) {
@@ -83,25 +126,38 @@ class CyclonPeer extends EventEmitter {
     if (this.timer) clearInterval(this.timer)
   }
 
+  oldest () {
+    let oldest = null
+    while (this.peers.length > 0) {
+      oldest = this.peers.oldest()
+      if (oldest.conn) {
+        break
+      }
+      this.peers.remove(oldest)
+    }
+    return oldest
+  }
+
+  sample (limit) {
+    return this.peers.sample(limit).map((peer) => {
+      return {
+        id: this.peers.peerToId(peer),
+        multiaddrs: peer.multiaddrs
+      }
+    })
+  }
+
   shuffle () {
     // Step 1 increase the age of each neighboor
     this.peers.updateAge()
 
     // Step 2 get oldest
-    let oldest = null
-
     if (this.lastShufflePeer !== null) {
       this.peers.remove(this.lastShufflePeer)
       this.lastShufflePeer = null
     }
 
-    while (this.peers.length > 0) {
-      oldest = this.peers.oldest()
-      if (true) { // (oldest.isConnected()) {
-        break
-      }
-      this.peers.remove(oldest)
-    }
+    const oldest = this.oldest()
 
     if (this.peers.length === 0) {
       debug(`${peerToId(this.me)} has 0 peers, can't proceed`)
@@ -114,14 +170,7 @@ class CyclonPeer extends EventEmitter {
     this.peers.remove(oldest)
 
     // .. and sample subset
-    let sample = this.peers
-      .sample(this.maxPeers - 1)
-      .map((peer) => {
-        return {
-          id: this.peers.peerToId(peer),
-          multiaddrs: peer.multiaddrs
-        }
-      })
+    let sample = this.sample(this.maxPeers - 1)
 
     // Step 3 add yourself to the list
     let sending = sample.concat({
@@ -129,25 +178,18 @@ class CyclonPeer extends EventEmitter {
       multiaddrs: this.me.multiaddrs
     })
 
-    this.swarm.dial(oldest, '/cyclon/0.1.0', (err, conn) => {
-      if (err) {
-        debug('error when dialing the old')
-        conn.write({op: 'shuffle', data: sending})
-      }
-    })
-
     // Step 4 send subset to peer
-    // oldest.emit('shuffle', {data: sending})
+    oldest('shuffle', {data: sending})
 
     // Step 5 receive subset from peer and update cache
     // TODO
-    // oldest.on('shuffle-receive', (peers) => {
-    //   if (this.lastShufflePeer !== oldest) {
-    //     return
-    //   }
-    //   this.addPeers(peers.map(fromRawPeer), sample)
-    //   this.lastShufflePeer = null
-    // })
+    oldest.on('shuffle-receive', (peers) => {
+      if (this.lastShufflePeer !== oldest) {
+        return
+      }
+      this.addPeers(peers.map(fromRawPeer), sample)
+      this.lastShufflePeer = null
+    })
   }
 
   shuffleReceive (peer, remote) {
@@ -160,7 +202,7 @@ class CyclonPeer extends EventEmitter {
         }
       })
 
-    peer.conn.send('shuffle-received', sample)
+    peer.emit('shuffle-received', sample)
     this.addPeers(remote.map(fromRawPeer), sample)
   }
 
@@ -173,7 +215,9 @@ class CyclonPeer extends EventEmitter {
         return !itself && !exists
       })
 
-    this.peers.upsert(
+    add.forEach(this.connect)
+
+    this.peers.add(
       add.map((peer) => {
         peer.age = 0
         return peer
