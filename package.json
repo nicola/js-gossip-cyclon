@@ -4,7 +4,7 @@
   "description": "Cyclon Gossip algorithm implemented in Javascript",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --harmony_default_parameters test/",
+    "test": "mocha --harmony_default_parameters test/ --bail",
     "test-debug": "DEBUG='cyclon' mocha --harmony_default_parameters test/"
   },
   "repository": {

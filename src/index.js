@@ -1,233 +1,162 @@
-'use strict'
-
-const PeerInfo = require('peer-info')
-const EventEmitter = require('events').EventEmitter
-const PeerSet = require('peer-set-cyclon')
 const Swarm = require('libp2p-swarm')
-const TCP = require('libp2p-tcp')
-const spdy = require('libp2p-spdy')
-const multiaddr = require('multiaddr')
-const debug = require('debug')('cyclon')
-const PeerId = require('peer-id')
 const ndjson = require('ndjson')
+const Peer = require('peer-info')
+const PeerId = require('peer-id')
+const multiaddr = require('multiaddr')
+const spdy = require('libp2p-spdy')
+const TCP = require('libp2p-tcp')
+const PeerSet = require('peer-set-cyclon')
 
-function peerToId (peerInfo, short) {
-  if (short === true) {
-    return peerInfo.id.toB58String().substring(2, 10)
-  } else {
-    return peerInfo.id.toB58String()
-  }
+// Send a set of peers to a peer
+// And receive a set of peers from her
+function shuffle (swarm, to, peers, callback) {
+  console.log('pre dial')
+  swarm.dial(to, '/cyclon/0.1.0', (err, conn) => {
+    console.log('post dial')
+    if (err) {
+      console.log(err)
+      return callback(err)
+    }
+
+    // Write into connection
+    var serialize = ndjson.serialize()
+    serialize.write(peers)
+    serialize.end()
+    serialize.pipe(conn)
+
+    // reading from connection
+    var stream = ndjson.parse()
+    stream.on('data', function (peers) {
+      callback(null, peers)
+    })
+
+    conn.pipe(stream)
+  })
+  return this
 }
 
-class CyclonPeer extends EventEmitter {
-  constructor (options = {}) {
-    super()
-    // myself
-    this.me = options.me || new PeerInfo()
-    this.me.multiaddr.add(multiaddr('/ip4/0.0.0.0/tcp/0'))
+function handle (swarm, cb) {
+  swarm.handle('/cyclon/0.1.0', (conn) => {
+    var stream = ndjson.parse()
+    stream.on('data', function (peers) {
+      cb(peers, (err, reply) => {
+        if (err) {
+          console.log('do not know how to handle error yet')
+          return
+        }
+        var serialize = ndjson.serialize()
+        serialize.write(reply)
+        serialize.end()
+        serialize.pipe(conn)
+      })
+    })
+    conn.pipe(stream)
+  })
+}
 
-    // handling connections
-    this.swarm = new Swarm(this.me)
+class CyclonPeer {
+  constructor (opts = {}) {
+    this.peer = opts.peer || new Peer()
+    this.peer.multiaddr.add(multiaddr('/ip4/0.0.0.0/tcp/0'))
+    this.swarm = new Swarm(this.peer)
     this.swarm.transport.add('tcp', new TCP())
     this.swarm.connection.addStreamMuxer(spdy)
     this.swarm.connection.reuse()
-    this.swarm.handle('/cyclon/0.1.0', (conn) => {
-      conn
-        .pipe(ndjson.parse())
-        .on('data', (data) => {
-          console.log(data.toString())
-          conn.write(data)
-        })
+    this.maxShuffle = opts.maxShuffle || 10
+    this.maxPeers = opts.maxPeers || 20
+    this.partialView = new PeerSet(opts.peers, {limit: this.maxPeers})
 
-      conn.on('error', (err) => {
-        debug(`${peerToId(this.me, true)} disconnected with error`, err)
-      })
+    handle(this.swarm, (peers, done) => {
+      console.log(this.peer.id.toB58String().substr(2, 6), 'handle - peers:', peers.map(peer => {
+        return peer.id.substr(2, 6)
+      }))
 
-      conn.on('end', () => {
-        conn.end()
-      })
-
-      this.conn = conn
-    })
-
-    this.connect = (peer) => {
-      this.swarm.dial(peer, '/cyclon/0.1.0', (err, conn) => {
-        if (err) {
-          debug(`${peerToId(this.me, true)} - ${peerToId(peer, true)} connection failed, err: ${err.message}`)
-          return
-        }
-
-        conn.on('error', (err) => {
-          this.emit('peer-disconnect', err, peer)
-        })
-
-        conn.on('end', () => {
-          conn.end()
-        })
-
-        peer.conn = conn
-        this.emit('peer-connect', peer)
-      })
-
-      return peer
-    }
-
-    // getting options
-    if (options.peer) {
-      options.peers.forEach(this.connect)
-    }
-    this.peers = new PeerSet(
-      options.peers,
-      options.maxPeers,
-      options.peerToId || peerToId)
-
-    this.interval = options.interval || 1000 * 60 * 1
-    this.maxPeers = options.maxPeers || 20
-
-    // internal vars
-    this.lastShufflePeer = null
-
-    // events
-    this.peers.on('add', (peer) => {
-      debug(`${peerToId(this.me, true)} - ${peerToId(peer, true)} add event`)
-    })
-    this.peers.on('remove', (peer) => {
-      debug(`${peerToId(this.me, true)} - ${peerToId(peer, true)} remove event`)
-    })
-    this.on('shuffle-receive', this.shuffleReceive)
-
-    this.on('peer-connect', (peer) => {
-      debug('* peer is connected', peerToId(peer, true))
-    })
-
-    this.on('peer-disconnect', (err, peer) => {
-      debug(`${peerToId(this.me, true)} - ${peerToId(peer, true)} disconnect event, err: ${err.message}`)
-    })
-
-    debug(`${peerToId(this.me, true)} - creation complete`)
-  }
-
-  listen (callback) {
-    this.swarm.transport.listen('tcp', {}, null, callback)
-  }
-
-  close (callback) {
-    debug(`${peerToId(this.me, true)} - close`)
-    this.stop()
-    this.swarm.close(callback)
-  }
-
-  start (callback) {
-    this.shuffle()
-    this.timer = setInterval(this.shuffle, this.interval)
-  }
-
-  stop () {
-    if (this.timer) clearInterval(this.timer)
-  }
-
-  oldest () {
-    let oldest = null
-    while (this.peers.length > 0) {
-      oldest = this.peers.oldest()
-      if (oldest.conn) {
-        break
-      }
-      this.peers.remove(oldest)
-    }
-    return oldest
-  }
-
-  sample (limit) {
-    return this.peers.sample(limit).map((peer) => {
-      return {
-        id: this.peers.peerToId(peer),
-        multiaddrs: peer.multiaddrs
-      }
-    })
-  }
-
-  shuffle () {
-    // Step 1 increase the age of each neighboor
-    this.peers.updateAge()
-
-    // Step 2 get oldest
-    if (this.lastShufflePeer !== null) {
-      this.peers.remove(this.lastShufflePeer)
-      this.lastShufflePeer = null
-    }
-
-    const oldest = this.oldest()
-
-    if (this.peers.length === 0) {
-      debug(`${peerToId(this.me, true)} - 0 peers, can't shuffle`)
-      return
-    }
-
-    debug(`${peerToId(this.me, true)} - ${peerToId(oldest)} shuffling`)
-
-    this.lastShufflePeer = oldest
-    this.peers.remove(oldest)
-
-    // .. and sample subset
-    let sample = this.sample(this.maxPeers - 1)
-
-    // Step 3 add yourself to the list
-    let sending = sample.concat({
-      id: this.peers.peerToId(this.me),
-      multiaddrs: this.me.multiaddrs
-    })
-
-    // Step 4 send subset to peer
-    oldest('shuffle', {data: sending})
-
-    // Step 5 receive subset from peer and update cache
-    // TODO
-    oldest.on('shuffle-receive', (peers) => {
-      if (this.lastShufflePeer !== oldest) {
-        return
-      }
+      const sample = this.partialView.sample(this.maxShuffle)
       this.addPeers(peers.map(fromRawPeer), sample)
-      this.lastShufflePeer = null
+
+      done(null, sample.map(toRawPeer))
     })
   }
 
-  shuffleReceive (peer, remote) {
-    let sample = this.peers
-      .sample(this.maxPeers)
-      .map((peer) => {
-        return {
-          id: this.peers.peerToId(peer),
-          multiaddrs: peer.multiaddrs
-        }
-      })
+  listen (cb) {
+    this.swarm.transport.listen('tcp', {}, null, cb)
+  }
 
-    peer.emit('shuffle-received', sample)
-    this.addPeers(remote.map(fromRawPeer), sample)
+  close (cb) {
+    this.swarm.close(cb)
   }
 
   addPeers (peers, replace) {
-    let add = peers
-      .slice(0, this.maxPeers)
-      .filter((peer) => {
-        let itself = this.peers.peerToId(peer) === this.peers.peerToId(this.me)
-        let exists = this.peers.get(peer)
-        return !itself && !exists
+    const peerToId = this.partialView.peerToId
+    // filter out myself
+    let add = peers.filter(peer => peerToId(peer) !== peerToId(this.peer))
+    this.partialView.add(add, replace)
+  }
+
+  updateAge () {
+    this.partialView.updateAge()
+  }
+
+  shuffle (cb) {
+    // if previous shuffle currently running,
+    // remove that peer since it has been too slow
+    if (this.lastShuffled) {
+      this.partialView.remove(this.lastShuffled)
+    }
+
+    // if we have no partialView, we are done
+    if (this.partialView.length === 0) {
+      return cb()
+    }
+
+    // 1 - increase age
+    this.updateAge()
+
+    // 2 - get oldest
+    const oldest = this.partialView.oldest()
+    this.lastShuffled = oldest
+    this.partialView.remove(oldest)
+    // .. and a sampled subset
+    let sample = this.partialView.sample(this.maxShuffle - 1)
+
+    // 3 - add yourself to the list
+    let sending = sample
+      .map(toRawPeer)
+      .concat({
+        id: this.partialView.peerToId(this.peer),
+        multiaddrs: this.peer.multiaddrs
       })
 
-    add.forEach(this.connect)
+    // 4 - send subset to peer
+    shuffle(this.swarm, oldest, sending, (err, peers) => {
+      if (err) {
+        return cb(err)
+      }
+      if (this.lastShuffled !== oldest) {
+        console.log('this response has arrived too late')
+        cb(new Error('response arrived too late'))
+        return
+      }
+      console.log(this.peer.id.toB58String().substr(2, 6), 'received - peers:', peers.map(peer => {
+        return peer.id.substr(2, 6)
+      }))
 
-    this.peers.add(
-      add.map((peer) => {
-        peer.age = 0
-        return peer
-      }),
-      replace)
+      this.addPeers(peers.map(fromRawPeer), sample)
+      this.lastShuffled = null
+      cb()
+    })
+  }
+}
+
+function toRawPeer (peer) {
+  return {
+    id: peer.id.toB58String(),
+    multiaddrs: peer.multiaddrs
   }
 }
 
 function fromRawPeer (peer) {
-  const pi = new PeerInfo(PeerId.createFromB58String(peer.id))
+  const pi = new Peer(PeerId.createFromB58String(peer.id))
   pi.age = peer.age
   pi.multiaddrs = peer.multiaddrs
   return pi

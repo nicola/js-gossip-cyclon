@@ -19,71 +19,48 @@ describe('cyclon-peer', function () {
   const Bob = new CyclonPeer({peers: [new PeerInfo(PeerId.createFromB58String(AliceId.toB58String()))]})
 
   it('create with bootstrap peers', (done) => {
-    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
+    const Alice = new CyclonPeer({peer: new PeerInfo(AliceId)})
     expect(Alice).to.exist
     expect(Bob).to.exist
-    expect(Bob.peers).to.have.lengthOf(1)
-    expect(Object.keys(Bob.peers.peers)[0]).to.eql(Bob.peers.peerToId(Alice.me))
-    expect(Bob.peers.get(Alice.me)).to.exist
+    expect(Bob.partialView).to.have.lengthOf(1)
+    expect(Object.keys(Bob.partialView.peers)[0]).to.eql(Bob.partialView.peerToId(Alice.peer))
+    expect(Bob.partialView.get(Alice.peer)).to.exist
     done()
   })
 
-  it('add peers to peer set', (done) => {
-    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
-    Alice.addPeers([Bob.me])
-    expect(Alice.peers).to.have.lengthOf(1)
-    expect(Alice.peers.get(Bob.me)).to.exist
-    expect(Alice.peers.peers[Alice.peers.peerToId(Bob.me)]).to.exist
+  it('add peers to neighbors set', (done) => {
+    const Alice = new CyclonPeer({peer: new PeerInfo(AliceId)})
+    Alice.addPeers([Bob.peer])
+    expect(Alice.partialView).to.have.lengthOf(1)
+    expect(Alice.partialView.get(Bob.peer)).to.exist
+    expect(Alice.partialView.peers[Alice.partialView.peerToId(Bob.peer)]).to.exist
     done()
   })
 
-  it('adding a peer emits an event', (done) => {
-    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
-    Alice.peers.on('add', (peer) => {
+  it('adding a peer emits an `add` event', (done) => {
+    const Alice = new CyclonPeer({peer: new PeerInfo(AliceId)})
+    Alice.partialView.on('add', (peer) => {
       expect(peer).to.exist
-      expect(Alice.peers.peerToId(peer)).to.eql(Alice.peers.peerToId(Bob.me))
+      expect(Alice.partialView.peerToId(peer)).to.eql(Alice.partialView.peerToId(Bob.peer))
       done()
     })
-    Alice.addPeers([Bob.me])
+    Alice.addPeers([Bob.peer])
   })
 
-  it('adding a peer emits a connect event', (done) => {
-    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
-    parallel([
-      Bob.listen.bind(Bob),
-      Alice.listen.bind(Alice)
-    ], (err) => {
-      if (err) return done(err)
-
-      Alice.addPeers([Bob.me])
-      Alice.on('peer-connect', (peer) => {
-        expect(peer).to.exist
-        expect(Alice.peers.peerToId(peer)).to.eql(Alice.peers.peerToId(Bob.me))
-
-        // close standing connection
-        peer.conn.end()
-        parallel([
-          Bob.close.bind(Bob),
-          Alice.close.bind(Alice)
-        ], done)
-      })
-    })
-  })
-
-  it('removing a peer emits an event', (done) => {
-    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
-    Alice.addPeers([Bob.me])
-    Alice.peers.on('remove', (peer) => {
+  it('removing a peer emits a remove event', (done) => {
+    const Alice = new CyclonPeer({peer: new PeerInfo(AliceId)})
+    Alice.addPeers([Bob.peer])
+    Alice.partialView.on('remove', (peer) => {
       expect(peer).to.exist
-      expect(Alice.peers.peerToId(peer)).to.eql(Alice.peers.peerToId(Bob.me))
-      expect(Alice.peers).to.have.lengthOf(0)
+      expect(Alice.partialView.peerToId(peer)).to.eql(Alice.partialView.peerToId(Bob.peer))
+      expect(Alice.partialView).to.have.lengthOf(0)
       done()
     })
-    Alice.peers.remove(Bob.me)
+    Alice.partialView.remove(Bob.peer)
   })
 
   describe('listen', () => {
-    const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
+    const Alice = new CyclonPeer({peer: new PeerInfo(AliceId)})
 
     it('starts listening on a tcp port', (done) => {
       Alice.listen((err) => {
@@ -93,25 +70,63 @@ describe('cyclon-peer', function () {
         })
       })
     })
+  })
 
-    it('starts listening on the /cyclon/x.y.z protocol', (done) => {
-      const Alice = new CyclonPeer({me: new PeerInfo(AliceId)})
+  describe('shuffle', () => {
+    const Alice = new CyclonPeer({peer: new PeerInfo(AliceId)})
+    const Charles = new CyclonPeer()
+    const Eve = new CyclonPeer()
+    console.log('Alice:', Alice.peer.id.toB58String().substr(2, 6))
+    console.log('Bob:', Bob.peer.id.toB58String().substr(2, 6))
+    console.log('Charles:', Charles.peer.id.toB58String().substr(2, 6))
+    console.log('Eve:', Eve.peer.id.toB58String().substr(2, 6))
+
+    const shuffle = (done) => {
+      Alice.partialView.peers = {}
+      Bob.partialView.peers = {}
+      Alice.addPeers([Bob.peer])
+      Alice.updateAge()
+      Alice.addPeers([Charles.peer])
+      Bob.addPeers([Eve.peer])
+      Alice.shuffle((err) => {
+        console.log('starting shuffle')
+        if (err) return done(err)
+
+        parallel([
+          Alice.close.bind(Alice),
+          Bob.close.bind(Bob)
+        ], (err2) => {
+          console.log('closed')
+          // Previous peer (Bob might be dropped)
+          expect(Alice.partialView.peers).to.include.keys(Charles.peer.id.toB58String())
+          // New peer from Bob
+          expect(Alice.partialView.peers).to.include.keys(Eve.peer.id.toB58String())
+
+          // Author of the exchange
+          expect(Bob.partialView.peers).to.include.keys(Alice.peer.id.toB58String())
+          // New peer from Bob
+          expect(Bob.partialView.peers).to.include.keys(Charles.peer.id.toB58String())
+          done()
+        })
+      })
+    }
+
+    it('shuffle exchange peers', (done) => {
       parallel([
         Alice.listen.bind(Alice),
         Bob.listen.bind(Bob)
       ], (err) => {
-        expect(err).to.not.exist
-        Alice.swarm.dial(Bob.me, '/cyclon/0.1.0', (err, conn) => {
-          expect(err).to.not.exist
-          expect(conn).to.exist
-          conn.end()
-          parallel([
-            Bob.close.bind(Bob),
-            Alice.close.bind(Alice)
-          ], () => {
-            done()
-          })
-        })
+        if (err) return done(err)
+        shuffle(done)
+      })
+    })
+    it('shuffle exchange peers again', (done) => {
+      parallel([
+        Alice.listen.bind(Alice),
+        Bob.listen.bind(Bob)
+      ], (err) => {
+        if (err) return done(err)
+        shuffle(done)
       })
     })
   })
