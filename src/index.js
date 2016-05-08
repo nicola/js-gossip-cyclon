@@ -32,7 +32,6 @@ function shuffle (swarm, to, peers, callback) {
 
     conn.pipe(stream)
   })
-  return this
 }
 
 function handle (swarm, cb) {
