@@ -44,7 +44,7 @@ describe('cyclon-peer', function () {
     const Alice = new CyclonPeer({peer: new PeerInfo(AliceId)})
     Alice.partialView.on('add', (peer) => {
       expect(peer).to.exist
-      expect(peer).to.eql(Alice.partialView.peerToId(Bob.peer))
+      expect(Alice.partialView.peerToId(peer)).to.eql(Alice.partialView.peerToId(Bob.peer))
       done()
     })
     Alice.addPeers([Bob.peer])
@@ -55,7 +55,7 @@ describe('cyclon-peer', function () {
     Alice.addPeers([Bob.peer])
     Alice.partialView.on('remove', (peer) => {
       expect(peer).to.exist
-      expect(Alice.partialView.peerToId(peer)).to.eql(Alice.partialView.peerToId(Bob.peer))
+      expect(peer).to.eql(Alice.partialView.peerToId(Bob.peer))
       expect(Alice.partialView).to.have.lengthOf(0)
       done()
     })
