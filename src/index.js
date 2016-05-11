@@ -6,15 +6,14 @@ const multiaddr = require('multiaddr')
 const spdy = require('libp2p-spdy')
 const TCP = require('libp2p-tcp')
 const PeerSet = require('peer-set-cyclon')
+const debug = require('debug')('gossip:cyclon')
 
 // Send a set of peers to a peer
 // And receive a set of peers from her
 function shuffle (swarm, to, peers, callback) {
-  console.log('pre dial')
   swarm.dial(to, '/cyclon/0.1.0', (err, conn) => {
-    console.log('post dial')
     if (err) {
-      console.log(err)
+      debug(err)
       return callback(err)
     }
 
@@ -66,7 +65,7 @@ class CyclonPeer {
     this.partialView = new PeerSet(opts.peers, {limit: this.maxPeers})
 
     handle(this.swarm, (peers, done) => {
-      console.log(this.peer.id.toB58String().substr(2, 6), 'handle - peers:', peers.map(peer => {
+      debug(this.peer.id.toB58String().substr(2, 6), 'handle - peers:', peers.map(peer => {
         return peer.id.substr(2, 6)
       }))
 
@@ -132,11 +131,11 @@ class CyclonPeer {
         return cb(err)
       }
       if (this.lastShuffled !== oldest) {
-        console.log('this response has arrived too late')
+        debug('this response has arrived too late')
         cb(new Error('response arrived too late'))
         return
       }
-      console.log(this.peer.id.toB58String().substr(2, 6), 'received - peers:', peers.map(peer => {
+      debug(this.peer.id.toB58String().substr(2, 6), 'received - peers:', peers.map(peer => {
         return peer.id.substr(2, 6)
       }))
 

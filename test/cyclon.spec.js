@@ -6,6 +6,9 @@ const CyclonPeer = require('../src')
 const PeerId = require('peer-id')
 const PeerInfo = require('peer-info')
 const parallel = require('run-parallel')
+const series = require('run-series')
+const waterfall = require('run-waterfall')
+const debug = require('debug')('gossip:cyclon:test')
 
 const alice = {
   id: '1220151ab1658d8294ab34b71d5582cfe20d06414212f440a69366f1bc31deb5c72d',
@@ -76,58 +79,60 @@ describe('cyclon-peer', function () {
     const Alice = new CyclonPeer({peer: new PeerInfo(AliceId)})
     const Charles = new CyclonPeer()
     const Eve = new CyclonPeer()
-    console.log('Alice:', Alice.peer.id.toB58String().substr(2, 6))
-    console.log('Bob:', Bob.peer.id.toB58String().substr(2, 6))
-    console.log('Charles:', Charles.peer.id.toB58String().substr(2, 6))
-    console.log('Eve:', Eve.peer.id.toB58String().substr(2, 6))
+    debug('Alice:', Alice.peer.id.toB58String().substr(2, 6))
+    debug('Bob:', Bob.peer.id.toB58String().substr(2, 6))
+    debug('Charles:', Charles.peer.id.toB58String().substr(2, 6))
+    debug('Eve:', Eve.peer.id.toB58String().substr(2, 6))
 
     const shuffle = (done) => {
-      Alice.partialView.peers = {}
-      Bob.partialView.peers = {}
-      Alice.addPeers([Bob.peer])
-      Alice.updateAge()
-      Alice.addPeers([Charles.peer])
-      Bob.addPeers([Eve.peer])
-      Alice.shuffle((err) => {
-        console.log('starting shuffle')
+      waterfall([
+        (cb) => {
+          parallel([
+            Alice.listen.bind(Alice),
+            Bob.listen.bind(Bob)
+          ], (err) => cb(err))
+        },
+        (cb) => {
+          Alice.partialView.peers = {}
+          Bob.partialView.peers = {}
+          Alice.addPeers([Bob.peer])
+          Alice.updateAge()
+          Alice.addPeers([Charles.peer])
+          Bob.addPeers([Eve.peer])
+          setTimeout(() => Alice.shuffle(cb), 5)
+        },
+        (cb) => {
+          parallel([
+            Alice.close.bind(Alice),
+            Bob.close.bind(Bob)
+          ], () => cb())
+        }
+      ], (err) => {
         if (err) return done(err)
+        debug('closed')
+        // Previous peer (Bob might be dropped)
+        expect(Alice.partialView.peers).to.include.keys(Charles.peer.id.toB58String())
+        // New peer from Bob
+        expect(Alice.partialView.peers).to.include.keys(Eve.peer.id.toB58String())
 
-        parallel([
-          Alice.close.bind(Alice),
-          Bob.close.bind(Bob)
-        ], (err2) => {
-          console.log('closed')
-          // Previous peer (Bob might be dropped)
-          expect(Alice.partialView.peers).to.include.keys(Charles.peer.id.toB58String())
-          // New peer from Bob
-          expect(Alice.partialView.peers).to.include.keys(Eve.peer.id.toB58String())
-
-          // Author of the exchange
-          expect(Bob.partialView.peers).to.include.keys(Alice.peer.id.toB58String())
-          // New peer from Bob
-          expect(Bob.partialView.peers).to.include.keys(Charles.peer.id.toB58String())
-          done()
-        })
+        // Author of the exchange
+        expect(Bob.partialView.peers).to.include.keys(Alice.peer.id.toB58String())
+        // New peer from Bob
+        expect(Bob.partialView.peers).to.include.keys(Charles.peer.id.toB58String())
+        done()
       })
     }
 
     it('shuffle exchange peers', (done) => {
-      parallel([
-        Alice.listen.bind(Alice),
-        Bob.listen.bind(Bob)
-      ], (err) => {
-        if (err) return done(err)
-        shuffle(done)
-      })
+      shuffle(done)
     })
-    it('shuffle exchange peers again', (done) => {
-      parallel([
-        Alice.listen.bind(Alice),
-        Bob.listen.bind(Bob)
-      ], (err) => {
-        if (err) return done(err)
-        shuffle(done)
+
+    it('shuffle exchange peers 15x', (done) => {
+      const run50 = Array.from(new Array(15), (x, i) => {
+        return shuffle
       })
+
+      series(run50, done)
     })
   })
 })
