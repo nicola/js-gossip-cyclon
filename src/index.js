@@ -13,7 +13,6 @@ const debug = require('debug')('gossip:cyclon')
 function shuffle (swarm, to, peers, callback) {
   swarm.dial(to, '/cyclon/0.1.0', (err, conn) => {
     if (err) {
-      debug(err)
       return callback(err)
     }
 
@@ -62,18 +61,42 @@ class CyclonPeer {
     this.swarm.connection.reuse()
     this.maxShuffle = opts.maxShuffle || 10
     this.maxPeers = opts.maxPeers || 20
+    this.interval = opts.interval || 1000
     this.partialView = new PeerSet(opts.peers, {limit: this.maxPeers})
 
-    handle(this.swarm, (peers, done) => {
-      debug(this.peer.id.toB58String().substr(2, 6), 'handle - peers:', peers.map(peer => {
-        return peer.id.substr(2, 6)
-      }))
+    handle(this.swarm, (rawPeers, done) => {
+      debug(this.peer.id.toB58String().substr(2, 6),
+        'handle - peers:',
+        rawPeers.map(peer => {
+          return peer.id.substr(2, 6)
+        }),
+        'now',
+        this.partialView.getAll().map(peer => peer.id.toB58String().substr(2, 6)))
 
-      const sample = this.partialView.sample(this.maxShuffle)
-      this.addPeers(peers.map(fromRawPeer), sample)
+      const peers = rawPeers.map(fromRawPeer)
+      const sample = this.partialView.sample(this.maxShuffle, [peers[0]])
+      this.addPeers(rawPeers.map(fromRawPeer), sample)
 
       done(null, sample.map(toRawPeer))
     })
+  }
+
+  start (cb) {
+    const report = (err) => {
+      if (err) {
+        debug(`${this.peer.id.toB58String().substr(2, 6)} dial error`, err.message)
+      }
+    }
+    if (!this.intervalId) {
+      this.intervalId = setInterval(() => this.shuffle(report), 1000)
+    }
+  }
+
+  stop (cb) {
+    if (this.intervalId) {
+      clearInterval(this.intervalId)
+      delete this.intervalId
+    }
   }
 
   listen (cb) {
@@ -99,12 +122,16 @@ class CyclonPeer {
     // if previous shuffle currently running,
     // remove that peer since it has been too slow
     if (this.lastShuffled) {
+      debug(`${this.peer.id.toB58String().substr(2, 6)} removing lastShuffled ${this.lastShuffled.id.toB58String().substr(2, 6)}`)
       this.partialView.remove(this.lastShuffled)
+      this.lastShuffled = null
     }
 
     // if we have no partialView, we are done
     if (this.partialView.length === 0) {
-      return cb()
+      debug(`${this.peer.id.toB58String().substr(2, 6)} - shuffle: partialView is empty`)
+      if (cb) cb()
+      return
     }
 
     // 1 - increase age
@@ -115,48 +142,54 @@ class CyclonPeer {
     this.lastShuffled = oldest
     this.partialView.remove(oldest)
     // .. and a sampled subset
-    let sample = this.partialView.sample(this.maxShuffle - 1)
+    let sample = this.partialView.sample(this.maxShuffle - 1, [oldest])
 
     // 3 - add yourself to the list
     let sending = sample
+      .concat(this.peer)
       .map(toRawPeer)
-      .concat({
-        id: this.partialView.peerToId(this.peer),
-        multiaddrs: this.peer.multiaddrs
-      })
 
     // 4 - send subset to peer
     shuffle(this.swarm, oldest, sending, (err, peers) => {
       if (err) {
-        return cb(err)
-      }
-      if (this.lastShuffled !== oldest) {
-        debug('this response has arrived too late')
-        cb(new Error('response arrived too late'))
+        debug(`${this.peer.id.toB58String().substr(2, 6)} - shuffle: error shuffling`, err.message)
+        if (cb) cb(err)
         return
       }
-      debug(this.peer.id.toB58String().substr(2, 6), 'received - peers:', peers.map(peer => {
-        return peer.id.substr(2, 6)
-      }))
+
+      if (this.lastShuffled !== oldest) {
+        debug('this response has arrived too late')
+        if (cb) cb(new Error('response arrived too late'))
+        return
+      }
+
+      debug(this.peer.id.toB58String().substr(2, 6),
+        'received from',
+        oldest.id.toB58String().substr(2, 6),
+        ' - peers:',
+        peers.map(peer => peer.id.substr(2, 6)),
+        'now',
+        this.partialView.getAll().map(peer => peer.id.toB58String().substr(2, 6)))
 
       this.addPeers(peers.map(fromRawPeer), sample)
       this.lastShuffled = null
-      cb()
+      if (cb) cb()
     })
   }
 }
 
 function toRawPeer (peer) {
-  return {
+  const raw = {
     id: peer.id.toB58String(),
-    multiaddrs: peer.multiaddrs
+    multiaddrs: peer.multiaddrs.map(m => m.toString())
   }
+  return raw
 }
 
 function fromRawPeer (peer) {
   const pi = new Peer(PeerId.createFromB58String(peer.id))
   pi.age = peer.age
-  pi.multiaddrs = peer.multiaddrs
+  peer.multiaddrs.forEach(m => pi.multiaddr.add(multiaddr(m)))
   return pi
 }
 

@@ -34,7 +34,7 @@
     "ndjson": "^1.4.3",
     "peer-id": "^0.6.6",
     "peer-info": "^0.6.2",
-    "peer-set-cyclon": "^0.2.1",
+    "peer-set-cyclon": "^0.2.3",
     "pick-random": "^1.1.0",
     "run-waterfall": "^1.1.3"
   },
