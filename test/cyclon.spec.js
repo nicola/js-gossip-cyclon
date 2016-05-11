@@ -20,6 +20,8 @@ describe('cyclon-peer', function () {
   this.timeout(20000)
   const AliceId = PeerId.createFromPrivKey(alice.privKey)
   const Bob = new CyclonPeer({peers: [new PeerInfo(PeerId.createFromB58String(AliceId.toB58String()))]})
+  const Charles = new CyclonPeer()
+  const Eve = new CyclonPeer()
 
   it('create with bootstrap peers', (done) => {
     const Alice = new CyclonPeer({peer: new PeerInfo(AliceId)})
@@ -28,6 +30,16 @@ describe('cyclon-peer', function () {
     expect(Bob.partialView).to.have.lengthOf(1)
     expect(Object.keys(Bob.partialView.peers)[0]).to.eql(Bob.partialView.peerToId(Alice.peer))
     expect(Bob.partialView.get(Alice.peer)).to.exist
+    done()
+  })
+
+  it('partialView is within the maxPeers limit', (done) => {
+    const Alice = new CyclonPeer({peer: new PeerInfo(AliceId), maxPeers: 1})
+    Alice.addPeers([Bob.peer])
+    Alice.addPeers([Charles.peer])
+    expect(Alice.partialView.length).to.eql(1)
+    Alice.addPeers([Charles.peer], [Bob.peer])
+    expect(Alice.partialView.length).to.eql(1)
     done()
   })
 
@@ -77,8 +89,6 @@ describe('cyclon-peer', function () {
 
   describe('shuffle', () => {
     const Alice = new CyclonPeer({peer: new PeerInfo(AliceId)})
-    const Charles = new CyclonPeer()
-    const Eve = new CyclonPeer()
     debug('Alice:', Alice.peer.id.toB58String().substr(2, 6))
     debug('Bob:', Bob.peer.id.toB58String().substr(2, 6))
     debug('Charles:', Charles.peer.id.toB58String().substr(2, 6))
