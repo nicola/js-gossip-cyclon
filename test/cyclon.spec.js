@@ -99,7 +99,7 @@ describe('cyclon-peer', function () {
           Alice.updateAge()
           Alice.addPeers([Charles.peer])
           Bob.addPeers([Eve.peer])
-          setTimeout(() => Alice.shuffle(cb), 5)
+          process.nextTick(() => Alice.shuffle(cb))
         },
         (cb) => {
           parallel([
