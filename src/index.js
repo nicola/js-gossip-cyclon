@@ -88,7 +88,7 @@ class CyclonPeer {
       }
     }
     if (!this.intervalId) {
-      this.intervalId = setInterval(() => this.shuffle(report), 1000)
+      this.intervalId = setInterval(() => this.shuffle(report), this.interval)
     }
   }
 
