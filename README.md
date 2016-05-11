@@ -74,7 +74,7 @@ Update the age of the peers in the `.partialView`
 
 ## References
 
-[1] S. Voulgaris, D. Gavidia, M. Steen. [CYCLON: Inexpensive Membership Management for Unstructured P2P Overlays](http://gossple2.irisa.fr/~akermarr/cyclon.jnsm.pdf). J. Network Syst. Manage. 13(2): 197-217 (2005)
+[1] S. Voulgaris, D. Gavidia, M. van Steen. [CYCLON: Inexpensive Membership Management for Unstructured P2P Overlays](http://gossple2.irisa.fr/~akermarr/cyclon.jnsm.pdf). J. Network Syst. Manage. 13(2): 197-217 (2005)
 
 ## License
 
