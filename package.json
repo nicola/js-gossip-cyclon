@@ -1,6 +1,6 @@
 {
   "name": "gossip-cyclon",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Cyclon Gossip algorithm implemented in Javascript",
   "main": "index.js",
   "scripts": {
