@@ -38,8 +38,10 @@ describe('cyclon-peer', function () {
     Alice.addPeers([Bob.peer])
     Alice.addPeers([Charles.peer])
     expect(Alice.partialView.length).to.eql(1)
+    expect(Object.keys(Alice.partialView.peers)[0]).to.eql(Alice.partialView.peerToId(Bob.peer))
     Alice.addPeers([Charles.peer], [Bob.peer])
     expect(Alice.partialView.length).to.eql(1)
+    expect(Object.keys(Alice.partialView.peers)[0]).to.eql(Alice.partialView.peerToId(Charles.peer))
     done()
   })
 
