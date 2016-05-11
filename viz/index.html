@@ -101,7 +101,12 @@ function tick() {
         sourceY = d.source.y + (sourcePadding * normY),
         targetX = d.target.x - (targetPadding * normX),
         targetY = d.target.y - (targetPadding * normY);
-    return 'M' + sourceX + ',' + sourceY + 'L' + targetX + ',' + targetY;
+    return 'M' +
+      sourceX + ',' +
+      sourceY + 'A' +
+      dist + ',' + dist + ' 0 0,1 ' +
+      targetX + ',' +
+      targetY;
   });
 
   circle.attr('transform', function(d) {
@@ -117,7 +122,8 @@ function restart() {
   // update existing links
   path.classed('selected', function(d) { return d === selected_link; })
     .style('marker-start', function(d) { return d.left ? 'url(#start-arrow)' : ''; })
-    .style('marker-end', function(d) { return d.right ? 'url(#end-arrow)' : ''; });
+    .style('marker-end', function(d) { return d.right ? 'url(#end-arrow)' : ''; })
+    .style('stroke', function (d) { return colors(d.from) })
 
 
   // add new links
@@ -384,33 +390,30 @@ var map = {}
 
 var socket = io.connect('http://localhost:8080')
 socket.on('add', function (from, to) {
-  console.log('add', from, to, nodes, map[from], map[to])
-
   var link = {}
   link.from = map[from]
   if (map[from] < map[to]) {
-    link.source = nodes[map[from]]
-    link.target = nodes[map[to]]
+    link.source = map[from]
+    link.target = map[to]
     link.right = true
   } else {
-    link.source = nodes[map[to]]
-    link.target = nodes[map[from]]
+    link.source = map[to]
+    link.target = map[from]
     link.left = true
   }
+  console.log('adding', link.source, link.target, 'from', link.from)
   
   links.push(link)
-
+  console.log(links)
   restart()
 })
 socket.on('peer', function (peer) {
-  console.log('peer', peer)
   var id = lastNodeId++
   nodes.push({id: id})
   map[peer.id] = id
   restart()
 })
 socket.on('network', function (network) {
-  console.log('network', network)
   network.forEach(function(peer) {
     var id = lastNodeId++
     nodes.push({id: id})
@@ -421,22 +424,23 @@ socket.on('network', function (network) {
 socket.on('update', function (from, to) {
   // console.log('update', from, to)
 })
-socket.on('remove', function (from, to) {
-  console.log('remove', from, to)
+socket.on('remove', function (from, _to) {
   var source
   var target
   var direction
-  if (map[from] < map[to]) {
-    source = nodes[map[from]]
-    target = nodes[map[to]]
+  if (map[from] < map[_to]) {
+    source = map[from]
+    target = map[_to]
     direction = 'right'
   } else {
-    source = nodes[map[to]]
-    target = nodes[map[from]]
+    source = map[_to]
+    target = map[from]
     direction = 'left'
   }
+
   var linkId = links.some(function(link) {
-    return link.source === source && link.target === target && link[direction] === true
+    console.log(link, link.source.index, link.target.index, source, target)
+    return link.source.index === source && link.target.index === target && link[direction] === true
   })
   if (linkId) {
     links.splice(linkId, 1)

@@ -38,7 +38,7 @@ bootstrapPeer.listen(() => {
       peer.listen(() => {
         socket.emit('peer', {id: toId(peer.peer)})
         peer.partialView.on('add', (added) => socket.emit('add', peerId, toId(added)))
-        peer.partialView.on('remove', (removed) => socket.emit('remove', peerId, removed))
+        peer.partialView.on('remove', (removed) => socket.emit('remove', peerId, removed.substr(2, 10)))
         peer.partialView.on('update', (added) => socket.emit('update', peerId, toId(added)))
         peer.start()
       })
@@ -63,7 +63,7 @@ function sendNetwork (socket) {
       id: peer
     })
     network[peer].partialView.on('add', (added) => socket.emit('add', peer, toId(added)))
-    network[peer].partialView.on('remove', (removed) => socket.emit('remove', peer, removed))
+    network[peer].partialView.on('remove', (removed) => socket.emit('remove', peer, removed.substr(2, 10)))
     network[peer].partialView.on('update', (added) => socket.emit('update', peer, toId(added)))
   })
 }
