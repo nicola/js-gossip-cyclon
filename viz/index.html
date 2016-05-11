@@ -37,7 +37,7 @@ var force = d3.layout.force()
     .nodes(nodes)
     .links(links)
     .size([width, height])
-    .linkDistance(150)
+    .linkDistance(300)
     .charge(-500)
     .on('tick', tick)
 
@@ -126,6 +126,7 @@ function restart() {
     .classed('selected', function(d) { return d === selected_link; })
     .style('marker-start', function(d) { return d.left ? 'url(#start-arrow)' : ''; })
     .style('marker-end', function(d) { return d.right ? 'url(#end-arrow)' : ''; })
+    .style('stroke', function (d) { return colors(d.from) })
     .on('mousedown', function(d) {
       if(d3.event.ctrlKey) return;
 
@@ -386,6 +387,7 @@ socket.on('add', function (from, to) {
   console.log('add', from, to, nodes, map[from], map[to])
 
   var link = {}
+  link.from = map[from]
   if (map[from] < map[to]) {
     link.source = nodes[map[from]]
     link.target = nodes[map[to]]

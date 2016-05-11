@@ -20,9 +20,8 @@ app.get('/app.js', (req, res) => {
   res.sendfile(path.resolve(__dirname, 'app.js'))
 })
 
-const bootstrapPeer = new CyclonPeer({interval: 1000, maxPeers: 5, maxShuffle: 3})
+const bootstrapPeer = new CyclonPeer({interval: 1000, maxPeers: 3, maxShuffle: 2})
 const network = {}
-console.log(bootstrapPeer)
 network[toId(bootstrapPeer.peer)] = bootstrapPeer
 
 bootstrapPeer.listen(() => {
@@ -34,15 +33,13 @@ bootstrapPeer.listen(() => {
     })
     socket.on('new-peer', function () {
       console.log('new-peer!')
-      const peer = new CyclonPeer({peers: [bootstrapPeer.peer], interval: 1000, maxPeers: 5, maxShuffle: 3})
+      const peer = new CyclonPeer({peers: [bootstrapPeer.peer], interval: 1000, maxPeers: 3, maxShuffle: 2})
+      const peerId = toId(peer.peer)
       peer.listen(() => {
         socket.emit('peer', {id: toId(peer.peer)})
-        peer.partialView.on('add', (added) => socket.emit('add', toId(peer.peer), toId(added)))
-        peer.partialView.on('remove', (added) => {
-          console.log("remove!!!!!!", peer)
-          socket.emit('remove', toId(peer.peer), toId(added))
-        })
-        peer.partialView.on('update', (added) => socket.emit('update', toId(peer.peer), toId(added)))
+        peer.partialView.on('add', (added) => socket.emit('add', peerId, toId(added)))
+        peer.partialView.on('remove', (removed) => socket.emit('remove', peerId, removed))
+        peer.partialView.on('update', (added) => socket.emit('update', peerId, toId(added)))
         peer.start()
       })
       network[toId(peer.peer)] = peer
@@ -66,7 +63,7 @@ function sendNetwork (socket) {
       id: peer
     })
     network[peer].partialView.on('add', (added) => socket.emit('add', peer, toId(added)))
-    network[peer].partialView.on('remove', (added) => socket.emit('remove', peer, toId(added)))
+    network[peer].partialView.on('remove', (removed) => socket.emit('remove', peer, removed))
     network[peer].partialView.on('update', (added) => socket.emit('update', peer, toId(added)))
   })
 }
