@@ -4,6 +4,13 @@
 
 This implements the Cyclon gossip protocol [1] for membership management.
 
+##### Cyclon in _simple language_
+
+Imagine you have big group of people and you want to tell everybody something. You could _broadcast_ a message by talking to each of them individually, or you could just talk to some (this is called gossip), telling them to tell other people.
+
+Cyclon is a simple protocol that ensures that every peer in the network gets connected with the other peers, so that the network is all connected. This is done by keeping a list of neighbors and every _n_ seconds, ask to the one that has been the longest in the list, to exchange some neighbors.
+
+
 ## Cyclon
 
 ```js
