@@ -28,6 +28,18 @@ parallel([
 
 ```
 
+## Run the simulation
+
+```bash
+$ git clone https://github.com/nicola/js-gossip-cyclon
+$ cd js-gossip-cyclon
+$ npm install
+$ node viz/index.js
+// Now visit http://127.0.0.1:8080
+```
+
+<img src="https://raw.githubusercontent.com/nicola/js-gossip-cyclon/master/simulation.png" width="500px">
+
 #### var peer = new CyclonPeer(opts)
 
 `opts` can have:
