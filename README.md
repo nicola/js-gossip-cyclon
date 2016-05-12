@@ -8,7 +8,7 @@ This implements the Cyclon gossip protocol [1] for membership management.
 
 Imagine you have big group of people and you want to tell everybody something. You could _broadcast_ a message by talking to each of them individually, or you could just talk to some (this is called gossip), telling them to tell other people.
 
-Cyclon is a simple protocol that ensures that every peer in the network gets connected with the other peers, so that the network is all connected. This is done by keeping a list of neighbors and every _n_ seconds, ask to the one that has been the longest in the list, to exchange some neighbors.
+Cyclon is a simple gossip protocol that ensures that every peer in the network gets connected with the network of peers, without being connected to every single one. This is done by peers keeping a list of neighbors (small compared to the network) and at every interval, ask the neighbor that has been the longest in a peer list of neighbors (this is called partial view), to exchange some neighbors.
 
 
 ## Cyclon
