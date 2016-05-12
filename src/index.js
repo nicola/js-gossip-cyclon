@@ -84,7 +84,7 @@ class CyclonPeer {
   start (cb) {
     const report = (err) => {
       if (err) {
-        debug(`${this.peer.id.toB58String().substr(2, 6)} dial error`, err.message)
+        // debug(`${this.peer.id.toB58String().substr(2, 6)} dial error`, err.message)
       }
     }
     if (!this.intervalId) {
@@ -129,7 +129,7 @@ class CyclonPeer {
 
     // if we have no partialView, we are done
     if (this.partialView.length === 0) {
-      debug(`${this.peer.id.toB58String().substr(2, 6)} - shuffle: partialView is empty`)
+      // debug(`${this.peer.id.toB58String().substr(2, 6)} - shuffle: partialView is empty`)
       if (cb) cb()
       return
     }
@@ -152,7 +152,7 @@ class CyclonPeer {
     // 4 - send subset to peer
     shuffle(this.swarm, oldest, sending, (err, peers) => {
       if (err) {
-        debug(`${this.peer.id.toB58String().substr(2, 6)} - shuffle: error shuffling`, err.message)
+        // debug(`${this.peer.id.toB58String().substr(2, 6)} - shuffle: error shuffling`, err.message)
         if (cb) cb(err)
         return
       }

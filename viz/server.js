@@ -20,7 +20,7 @@ app.get('/app.js', (req, res) => {
   res.sendfile(path.resolve(__dirname, 'app.js'))
 })
 
-const bootstrapPeer = new CyclonPeer({interval: 1000, maxPeers: 3, maxShuffle: 2})
+const bootstrapPeer = new CyclonPeer({interval: 2000, maxPeers: 3, maxShuffle: 2})
 const network = {}
 network[toId(bootstrapPeer.peer)] = bootstrapPeer
 
@@ -33,14 +33,16 @@ bootstrapPeer.listen(() => {
     })
     socket.on('new-peer', function () {
       console.log('new-peer!')
-      const peer = new CyclonPeer({peers: [bootstrapPeer.peer], interval: 1000, maxPeers: 3, maxShuffle: 2})
+      const peer = new CyclonPeer({peers: [bootstrapPeer.peer], interval: 2000, maxPeers: 3, maxShuffle: 2})
       const peerId = toId(peer.peer)
       peer.listen(() => {
+        console.log(peerId, 'start')
+        peer.start()
         socket.emit('peer', {id: toId(peer.peer)})
+        socket.emit('add', peerId, toId(bootstrapPeer.peer))
         peer.partialView.on('add', (added) => socket.emit('add', peerId, toId(added)))
         peer.partialView.on('remove', (removed) => socket.emit('remove', peerId, removed.substr(2, 10)))
         peer.partialView.on('update', (added) => socket.emit('update', peerId, toId(added)))
-        peer.start()
       })
       network[toId(peer.peer)] = peer
     })
