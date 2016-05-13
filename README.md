@@ -63,11 +63,11 @@ $ node viz/index.js
 
 ### variables
 
-#### peer.partialView
+#### `peer.partialView`
 
 Partial view of the peer, this is a [PeerSet](https://github.com/nicola/js-peer-set-cyclon)
 
-#### peer.peer
+#### `peer.peer`
 
 The current peer object, by default a [PeerInfo](http://npm.im/peer-info)
 
