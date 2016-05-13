@@ -50,7 +50,9 @@ $ node viz/index.js
 
 ## Usage
 
-### `var peer = new CyclonPeer(opts)`
+### constructor
+
+#### `var peer = new CyclonPeer(opts)`
 
 `opts` can have:
 - `peer`: [PeerInfo](http://npm.im/peer-info) object of this CyclonPeer, default: `new PeerInfo()`.
@@ -59,31 +61,43 @@ $ node viz/index.js
 - `interval`: how often CyclonPeer should shuffle
 - `peers`: array of peers to bootstrap CyclonPeer (they will be added to its `.partialView`)
 
-### `peer.listen(cb)`
+### variables
+
+#### peer.partialView
+
+Partial view of the peer, this is a [PeerSet](https://github.com/nicola/js-peer-set-cyclon)
+
+#### peer.peer
+
+The current peer object, by default a [PeerInfo](http://npm.im/peer-info)
+
+### methods
+
+#### `peer.listen(cb)`
 
 Listen on its transports (by default TCP)
 
-### `peer.close(cb)`
+#### `peer.close(cb)`
 
 Close any listener on any transport
 
-### `peer.start()`
+#### `peer.start()`
 
 Start shuffling every `peer.interval`
 
-### `peer.stop()`
+#### `peer.stop()`
 
 Stops the repeating shuffling
 
-### `peer.shuffle(cb)`
+#### `peer.shuffle(cb)`
 
 Shuffle and when done calls `cb` (on failure or success)
 
-### `peer.addPeers(peers, replace)`
+#### `peer.addPeers(peers, replace)`
 
 Add a list of peers, if the peers to be added will make `.partialView` grow beyond `.maxPeers`, the `replace` list will be used, otherwise drop 'em.
 
-### `peer.updateAge()`
+#### `peer.updateAge()`
 
 Update the age of the peers in the `.partialView`
 
