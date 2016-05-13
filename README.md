@@ -47,6 +47,9 @@ $ node viz/index.js
 
 <img src="https://raw.githubusercontent.com/nicola/js-gossip-cyclon/master/simulation.png" width="500px">
 
+
+## Usage
+
 ### `var peer = new CyclonPeer(opts)`
 
 `opts` can have:
