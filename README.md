@@ -10,6 +10,10 @@ Imagine you have big group of people and you want to tell everybody something. Y
 
 Cyclon is a simple gossip protocol that ensures that every peer in the network gets connected with the network of peers, without being connected to every single one. This is done by peers keeping a list of neighbors (small compared to the network) and at every interval, ask the neighbor that has been the longest in a peer list of neighbors (this is called partial view), to exchange some neighbors.
 
+![Gossip protocols by Virginia Alonso](https://github.com/nicola/js-gossip-cyclon/blob/master/cartoon.png)
+
+> Illustration by [@virginialonso](https://github.com/virginialonso)
+
 
 ## Cyclon
 
