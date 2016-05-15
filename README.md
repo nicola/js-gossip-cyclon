@@ -41,7 +41,10 @@ parallel([
 
 ```
 
-## Run the simulation
+## Run the visualization
+
+To help understand the protocol, I wrote a visualization that you can run with the following instructions.
+You can add new peers or click on existing peers to trigger a shuffle. Find the rest of the code [here](https://github.com/nicola/js-gossip-cyclon/tree/master/viz)
 
 ```bash
 $ git clone https://github.com/nicola/js-gossip-cyclon
