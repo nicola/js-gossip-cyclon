@@ -1,5 +1,7 @@
 # Gossip: Cyclon in Javascript
 
+##### Attention: this is work in progress and things may break!
+
 [![Build Status](https://travis-ci.org/nicola/js-gossip-cyclon.svg?style=flat-square)](https://travis-ci.org/nicola/js-gossip-cyclon)
 
 This implements the Cyclon gossip protocol [1] for membership management.
